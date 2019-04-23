@@ -1,17 +1,22 @@
 package com.vincent.videocompress;
 
+import android.Manifest;
 import android.annotation.TargetApi;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.vincent.videocompressor.VideoCompress;
 
@@ -22,9 +27,9 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- *  @dec  首页
- *  @author tangxiaopeng
- *  @date  2018/10/16 18:37
+ * @author tangxiaopeng
+ * @dec 首页
+ * @date 2018/10/16 18:37
  */
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_FOR_VIDEO_FILE = 1000;
@@ -47,11 +52,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
+            }
+        }
+    }
+
+    @Override
     protected void onPostCreate(@Nullable Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
         initView();
     }
-    String destPath="";
+
+    String destPath = "";
+
     private void initView() {
         Button btn_select = (Button) findViewById(R.id.btn_select);
         btn_select.setOnClickListener(new View.OnClickListener() {
@@ -61,14 +79,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-
-
         Button btn_compress = (Button) findViewById(R.id.btn_compress);
         btn_compress.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                 destPath = tv_output.getText().toString() + File.separator + "out_VID_" + new SimpleDateFormat("yyyyMMdd_HHmmss", getLocale()).format(new Date()) + ".mp4";
-                VideoCompress.compressVideoMedium(tv_input.getText().toString(), destPath, new VideoCompress.CompressListener() {
+                if (TextUtils.isEmpty(tv_input.getText().toString())) {
+                    Toast.makeText(getApplicationContext(), "解析视频文件path出错", Toast.LENGTH_LONG).show();
+                }
+                destPath = tv_output.getText().toString() + File.separator + "out_VID_" + new SimpleDateFormat("yyyyMMdd_HHmmss", getLocale()).format(new Date()) + ".mp4";
+
+                VideoCompress.compressVideoLow(tv_input.getText().toString(), destPath, new VideoCompress.CompressListener() {
                     @Override
                     public void onStart() {
 
@@ -89,10 +109,10 @@ public class MainActivity extends AppCompatActivity {
                         pb_compress.setVisibility(View.INVISIBLE);
                         endTime = System.currentTimeMillis();
                         Util.writeFile(MainActivity.this, "End at: " + new SimpleDateFormat("HH:mm:ss", getLocale()).format(new Date()) + "\n");
-                        Util.writeFile(MainActivity.this, "Total: " + ((endTime - startTime)/1000) + "s" + "\n");
+                        Util.writeFile(MainActivity.this, "Total: " + ((endTime - startTime) / 1000) + "s" + "\n");
                         Util.writeFile(MainActivity.this);
 
-                        startActivity(new Intent(MainActivity.this,VideoActivity.class).putExtra("vvVideo",destPath));
+                        startActivity(new Intent(MainActivity.this, VideoActivity.class).putExtra("vvVideo", destPath));
 
                     }
 
@@ -142,12 +162,14 @@ public class MainActivity extends AppCompatActivity {
 //                inputPath = data.getData().getPath();
 //                tv_input.setText(inputPath);
 
+//                inputPath = Util.getFilePathFromContentUri(data.getData(), getContentResolver());
                 try {
-                    inputPath = Util.getFilePath(this, data.getData());
+                    inputPath = Util.getFilePath(getApplicationContext(), data.getData());
                     tv_input.setText(inputPath);
                 } catch (URISyntaxException e) {
                     e.printStackTrace();
                 }
+
 
 //                inputPath = "/storage/emulated/0/DCIM/Camera/VID_20170522_172417.mp4"; // 图片文件路径
 //                tv_input.setText(inputPath);// /storage/emulated/0/DCIM/Camera/VID_20170522_172417.mp4
@@ -168,12 +190,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @SuppressWarnings("deprecation")
-    public static Locale getSystemLocaleLegacy(Configuration config){
+    public static Locale getSystemLocaleLegacy(Configuration config) {
         return config.locale;
     }
 
     @TargetApi(Build.VERSION_CODES.N)
-    public static Locale getSystemLocale(Configuration config){
+    public static Locale getSystemLocale(Configuration config) {
         return config.getLocales().get(0);
     }
 }

@@ -1,10 +1,12 @@
 package com.vincent.videocompress;
 
 import android.annotation.SuppressLint;
+import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -25,6 +27,37 @@ import java.util.Locale;
  *  @date  2018/10/16 18:37
  */
 public class Util {
+
+    public static String getFilePathFromContentUri(Uri uri, ContentResolver contentResolver) {
+        String filePath = null;
+        Cursor cursor = null;
+        String[] filePathColumn = {MediaStore.MediaColumns.DATA};
+        try {
+            cursor = contentResolver.query(uri, filePathColumn, null, null, null);
+            cursor.moveToFirst();
+            int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+            filePath = cursor.getString(columnIndex);
+        } catch (Exception ignore) {
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return filePath;
+    }
+
+    public static String getVideoPath(Uri uri, ContentResolver contentResolver, String selection) {
+        String path = null;
+        Cursor cursor = contentResolver.query(uri, null, selection, null, null);
+        if (cursor != null) {
+            if (cursor.moveToFirst()) {
+                path = cursor.getString(cursor.getColumnIndex(MediaStore.Images.Media.DATA));
+            }
+
+            cursor.close();
+        }
+        return path;
+    }
 
     @SuppressLint("NewApi")
     public static String getFilePath(Context context, Uri uri) throws URISyntaxException {
