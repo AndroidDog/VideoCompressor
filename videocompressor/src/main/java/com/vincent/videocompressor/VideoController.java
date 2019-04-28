@@ -107,70 +107,11 @@ class VideoController {
                             boolean outputDone = false;
                             boolean inputDone = false;
                             boolean decoderDone = false;
-                            int swapUV = 0;
                             int videoTrackIndex = -5;
 
                             int colorFormat;
-                            int processorType = PROCESSOR_TYPE_OTHER;
-                            String manufacturer = Build.MANUFACTURER.toLowerCase();
-                            if (Build.VERSION.SDK_INT < 18) {
-                                MediaCodecInfo codecInfo = selectCodec(MIME_TYPE);
-                                colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
-                                if (colorFormat == 0) {
-                                    throw new RuntimeException("no supported color format");
-                                }
-                                String codecName = codecInfo.getName();
-                                if (codecName.contains("OMX.qcom.")) {
-                                    processorType = PROCESSOR_TYPE_QCOM;
-                                    if (Build.VERSION.SDK_INT == 16) {
-                                        if (manufacturer.equals("lge") || manufacturer.equals("nokia")) {
-                                            swapUV = 1;
-                                        }
-                                    }
-                                } else if (codecName.contains("OMX.Intel.")) {
-                                    processorType = PROCESSOR_TYPE_INTEL;
-                                } else if (codecName.equals("OMX.MTK.VIDEO.ENCODER.AVC")) {
-                                    processorType = PROCESSOR_TYPE_MTK;
-                                } else if (codecName.equals("OMX.SEC.AVC.Encoder")) {
-                                    processorType = PROCESSOR_TYPE_SEC;
-                                    swapUV = 1;
-                                } else if (codecName.equals("OMX.TI.DUCATI1.VIDEO.H264E")) {
-                                    processorType = PROCESSOR_TYPE_TI;
-                                }
-                                Log.e("tmessages", "codec = " + codecInfo.getName() + " manufacturer = " + manufacturer + "device = " + Build.MODEL);
-                            } else {
-                                colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
-                            }
-                            Log.e("tmessages", "colorFormat = " + colorFormat);
 
-                            int resultHeightAligned = compressFactor.targetHeight;
-                            int padding = 0;
-                            int bufferSize = compressFactor.targetWidth * compressFactor.targetHeight * 3 / 2;
-                            if (processorType == PROCESSOR_TYPE_OTHER) {
-                                if (compressFactor.targetHeight % 16 != 0) {
-                                    resultHeightAligned += (16 - (compressFactor.targetHeight % 16));
-                                    padding = compressFactor.targetWidth * (resultHeightAligned - compressFactor.targetHeight);
-                                    bufferSize += padding * 5 / 4;
-                                }
-                            } else if (processorType == PROCESSOR_TYPE_QCOM) {
-                                if (!manufacturer.toLowerCase().equals("lge")) {
-                                    int uvoffset = (compressFactor.targetWidth * compressFactor.targetHeight + 2047) & ~2047;
-                                    padding = uvoffset - (compressFactor.targetWidth * compressFactor.targetHeight);
-                                    bufferSize += padding;
-                                }
-                            } else if (processorType == PROCESSOR_TYPE_TI) {
-                                //resultHeightAligned = 368;
-                                //bufferSize = resultWidth * resultHeightAligned * 3 / 2;
-                                //resultHeightAligned += (16 - (resultHeight % 16));
-                                //padding = resultWidth * (resultHeightAligned - resultHeight);
-                                //bufferSize += padding * 5 / 4;
-                            } else if (processorType == PROCESSOR_TYPE_MTK) {
-                                if (manufacturer.equals("baidu")) {
-                                    resultHeightAligned += (16 - (compressFactor.targetHeight % 16));
-                                    padding = compressFactor.targetWidth * (resultHeightAligned - compressFactor.targetHeight);
-                                    bufferSize += padding * 5 / 4;
-                                }
-                            }
+                            colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
 
                             extractor.selectTrack(videoIndex);
                             if (startTime > 0) {
@@ -369,7 +310,7 @@ class VideoController {
                                             }
                                             if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                                                 decoderOutputAvailable = false;
-                                                Log.e("tmessages", "decoder stream end");
+                                                Log.e(TAG, "decoder stream end");
                                                 encoder.signalEndOfInputStream();
                                             }
                                         }
@@ -380,7 +321,7 @@ class VideoController {
                                 videoStartTime = videoTime;
                             }
                         } catch (Exception e) {
-                            Log.e("tmessages", e.getMessage());
+                            Log.e(TAG, e.getMessage());
                             error = true;
                         }
 
