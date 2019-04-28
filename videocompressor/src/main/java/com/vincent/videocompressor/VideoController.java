@@ -1,7 +1,5 @@
 package com.vincent.videocompressor;
 
-import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -83,13 +81,6 @@ public class VideoController {
     }
 
     public native static int convertVideoFrame(ByteBuffer src, ByteBuffer dest, int destFormat, int width, int height, int padding, int swap);
-
-//    private void didWriteData(final boolean last, final boolean error) {
-//        final boolean firstWrite = videoConvertFirstWrite;
-//        if (firstWrite) {
-//            videoConvertFirstWrite = false;
-//        }
-//    }
 
     public static class VideoConvertRunnable implements Runnable {
 
@@ -196,9 +187,6 @@ public class VideoController {
                             info.offset = 0;
                             info.flags = extractor.getSampleFlags();
                             mediaMuxer.writeSampleData(muxerTrackIndex, buffer, info);
-//                            if (mediaMuxer.writeSampleData(muxerTrackIndex, buffer, info, isAudio)) {
-//                                // didWriteData(messageObject, file, false, false);
-//                            }
                             extractor.advance();
                         } else {
                             eof = true;
@@ -717,62 +705,15 @@ public class VideoController {
                 Log.e("tmessages", "time = " + (System.currentTimeMillis() - time));
             }
         } else {
-//            didWriteData(true, true);
             return false;
         }
-//        didWriteData(true, error);
 
         cachedFile = cacheFile;
 
-       /* File fdelete = inputFile;
-        if (fdelete.exists()) {
-            if (fdelete.delete()) {
-               Log.e("file Deleted :" ,inputFile.getPath());
-            } else {
-                Log.e("file not Deleted :" , inputFile.getPath());
-            }
-        }*/
-
-        //inputFile.delete();
         Log.e("ViratPath", path + "");
         Log.e("ViratPath", cacheFile.getPath() + "");
         Log.e("ViratPath", inputFile.getPath() + "");
 
-
-       /* Log.e("ViratPath",path+"");
-        File replacedFile = new File(path);
-
-        FileOutputStream fos = null;
-        InputStream inputStream = null;
-        try {
-            fos = new FileOutputStream(replacedFile);
-             inputStream = new FileInputStream(cacheFile);
-            byte[] buf = new byte[1024];
-            int len;
-            while ((len = inputStream.read(buf)) > 0) {
-                fos.write(buf, 0, len);
-            }
-            inputStream.close();
-            fos.close();
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-*/
-
-        //    cacheFile.delete();
-
-       /* try {
-           // copyFile(cacheFile,inputFile);
-            //inputFile.delete();
-            FileUtils.copyFile(cacheFile,inputFile);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }*/
-        // cacheFile.delete();
-        // inputFile.delete();
         return true;
     }
 
