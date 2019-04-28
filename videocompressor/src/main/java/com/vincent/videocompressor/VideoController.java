@@ -8,6 +8,7 @@ import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
+import android.media.MediaMuxer;
 import android.os.Build;
 import android.util.Log;
 
@@ -35,7 +36,7 @@ public class VideoController {
     private final static int PROCESSOR_TYPE_SEC = 4;
     private final static int PROCESSOR_TYPE_TI = 5;
     private static volatile VideoController Instance = null;
-    private boolean videoConvertFirstWrite = true;
+//    private boolean videoConvertFirstWrite = true;
 
     interface CompressProgressListener {
         void onProgress(float percent);
@@ -85,12 +86,12 @@ public class VideoController {
 
     public native static int convertVideoFrame(ByteBuffer src, ByteBuffer dest, int destFormat, int width, int height, int padding, int swap);
 
-    private void didWriteData(final boolean last, final boolean error) {
-        final boolean firstWrite = videoConvertFirstWrite;
-        if (firstWrite) {
-            videoConvertFirstWrite = false;
-        }
-    }
+//    private void didWriteData(final boolean last, final boolean error) {
+//        final boolean firstWrite = videoConvertFirstWrite;
+//        if (firstWrite) {
+//            videoConvertFirstWrite = false;
+//        }
+//    }
 
     public static class VideoConvertRunnable implements Runnable {
 
@@ -163,12 +164,12 @@ public class VideoController {
     }
 
     @TargetApi(16)
-    private long readAndWriteTrack(MediaExtractor extractor, MP4Builder mediaMuxer, MediaCodec.BufferInfo info, long start, long end, File file, boolean isAudio) throws Exception {
+    private long readAndWriteTrack(MediaExtractor extractor, MediaMuxer mediaMuxer, MediaCodec.BufferInfo info, long start, long end, File file, boolean isAudio) throws Exception {
         int trackIndex = selectTrack(extractor, isAudio);
         if (trackIndex >= 0) {
             extractor.selectTrack(trackIndex);
             MediaFormat trackFormat = extractor.getTrackFormat(trackIndex);
-            int muxerTrackIndex = mediaMuxer.addTrack(trackFormat, isAudio);
+            int muxerTrackIndex = mediaMuxer.addTrack(trackFormat);
             int maxBufferSize = trackFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE);
             boolean inputDone = false;
             if (start > 0) {
@@ -197,9 +198,10 @@ public class VideoController {
                         if (end < 0 || info.presentationTimeUs < end) {
                             info.offset = 0;
                             info.flags = extractor.getSampleFlags();
-                            if (mediaMuxer.writeSampleData(muxerTrackIndex, buffer, info, isAudio)) {
-                                // didWriteData(messageObject, file, false, false);
-                            }
+                            mediaMuxer.writeSampleData(muxerTrackIndex, buffer, info);
+//                            if (mediaMuxer.writeSampleData(muxerTrackIndex, buffer, info, isAudio)) {
+//                                // didWriteData(messageObject, file, false, false);
+//                            }
                             extractor.advance();
                         } else {
                             eof = true;
@@ -322,27 +324,29 @@ public class VideoController {
 
         File inputFile = new File(path);
         if (!inputFile.canRead()) {
-            didWriteData(true, true);
+//            didWriteData(true, true);
             return false;
         }
 
-        videoConvertFirstWrite = true;
+//        videoConvertFirstWrite = true;
         boolean error = false;
         long videoStartTime = startTime;
 
         long time = System.currentTimeMillis();
 
         if (resultWidth != 0 && resultHeight != 0) {
-            MP4Builder mediaMuxer = null;
+            MediaMuxer mediaMuxer = null;
             MediaExtractor extractor = null;
             try {
                 MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
                 //压缩后的文件配置相关信息
-                Mp4Movie movie = new Mp4Movie();
-                movie.setCacheFile(cacheFile);
-                movie.setRotation(rotationValue);
-                movie.setSize(resultWidth, resultHeight);
-                mediaMuxer = new MP4Builder().createMovie(movie);
+//                Mp4Movie movie = new Mp4Movie();
+//                movie.setCacheFile(cacheFile);
+//                movie.setRotation(rotationValue);
+//                movie.setSize(resultWidth, resultHeight);
+
+
+                mediaMuxer = new MediaMuxer(destinationPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
                 extractor = new MediaExtractor();
                 extractor.setDataSource(inputFile.toString());
 
@@ -526,7 +530,8 @@ public class VideoController {
                                     } else if (encoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                                         MediaFormat newFormat = encoder.getOutputFormat();
                                         if (videoTrackIndex == -5) {
-                                            videoTrackIndex = mediaMuxer.addTrack(newFormat, false);
+                                            videoTrackIndex = mediaMuxer.addTrack(newFormat);
+                                            mediaMuxer.start();
                                         }
                                     } else if (encoderStatus < 0) {
                                         throw new RuntimeException("unexpected result from encoder.dequeueOutputBuffer: " + encoderStatus);
@@ -542,9 +547,10 @@ public class VideoController {
                                         }
                                         if (info.size > 1) {
                                             if ((info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0) {
-                                                if (mediaMuxer.writeSampleData(videoTrackIndex, encodedData, info, false)) {
-                                                    didWriteData(false, false);
-                                                }
+                                                mediaMuxer.writeSampleData(videoTrackIndex, encodedData, info);
+//                                                if () {
+//                                                    didWriteData(false, false);
+//                                                }
                                             } else if (videoTrackIndex == -5) {
                                                 byte[] csd = new byte[info.size];
                                                 encodedData.limit(info.offset + info.size);
@@ -571,7 +577,8 @@ public class VideoController {
                                                     newFormat.setByteBuffer("csd-0", sps);
                                                     newFormat.setByteBuffer("csd-1", pps);
                                                 }
-                                                videoTrackIndex = mediaMuxer.addTrack(newFormat, false);
+                                                videoTrackIndex = mediaMuxer.addTrack(newFormat);
+                                                mediaMuxer.start();
                                             }
                                         }
                                         outputDone = (info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
@@ -706,7 +713,8 @@ public class VideoController {
                 }
                 if (mediaMuxer != null) {
                     try {
-                        mediaMuxer.finishMovie(false);
+                        mediaMuxer.stop();
+                        mediaMuxer.release();
                     } catch (Exception e) {
                         Log.e("tmessages", e.getMessage());
                     }
@@ -714,10 +722,10 @@ public class VideoController {
                 Log.e("tmessages", "time = " + (System.currentTimeMillis() - time));
             }
         } else {
-            didWriteData(true, true);
+//            didWriteData(true, true);
             return false;
         }
-        didWriteData(true, error);
+//        didWriteData(true, error);
 
         cachedFile = cacheFile;
 
