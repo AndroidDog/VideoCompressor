@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
-@SuppressLint("NewApi")
 public class VideoController {
     static final int COMPRESS_QUALITY_HIGH = 1;
     static final int COMPRESS_QUALITY_MEDIUM = 2;
@@ -55,7 +54,6 @@ public class VideoController {
         return localInstance;
     }
 
-    @SuppressLint("NewApi")
     public static int selectColorFormat(MediaCodecInfo codecInfo, String mimeType) {
         MediaCodecInfo.CodecCapabilities capabilities = codecInfo.getCapabilitiesForType(mimeType);
         int lastColorFormat = 0;
@@ -163,7 +161,6 @@ public class VideoController {
         VideoConvertRunnable.runConversion(path, dest);
     }
 
-    @TargetApi(16)
     private long readAndWriteTrack(MediaExtractor extractor, MediaMuxer mediaMuxer, MediaCodec.BufferInfo info, long start, long end, File file, boolean isAudio) throws Exception {
         int trackIndex = selectTrack(extractor, isAudio);
         if (trackIndex >= 0) {
@@ -221,7 +218,6 @@ public class VideoController {
         return -1;
     }
 
-    @TargetApi(16)
     private int selectTrack(MediaExtractor extractor, boolean audio) {
         int numTracks = extractor.getTrackCount();
         for (int i = 0; i < numTracks; i++) {
@@ -247,7 +243,6 @@ public class VideoController {
      * @param destinationPath 压缩后的视频文件
      * @return
      */
-    @TargetApi(16)
     public boolean convertVideo(final String sourcePath, String destinationPath, int quality, CompressProgressListener listener) {
         this.path = sourcePath;
 
@@ -282,8 +277,8 @@ public class VideoController {
 
                 resultWidth = originalWidth;
                 resultHeight = originalHeight;
-                bitrate = resultWidth * resultHeight *5;
-                Log.i("tangpeng","bitrate="+bitrate);
+                bitrate = resultWidth * resultHeight * 5;
+                Log.i("tangpeng", "bitrate=" + bitrate);
 
                 break;
             case COMPRESS_QUALITY_LOW:
