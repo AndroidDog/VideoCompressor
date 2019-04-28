@@ -20,16 +20,9 @@ class VideoController {
     static final int COMPRESS_QUALITY_MEDIUM = 2;
     static final int COMPRESS_QUALITY_LOW = 3;
 
-    private static File cachedFile;
     private String originalPath;
 
     private final static String MIME_TYPE = "video/avc";
-    private final static int PROCESSOR_TYPE_OTHER = 0;
-    private final static int PROCESSOR_TYPE_QCOM = 1;
-    private final static int PROCESSOR_TYPE_INTEL = 2;
-    private final static int PROCESSOR_TYPE_MTK = 3;
-    private final static int PROCESSOR_TYPE_SEC = 4;
-    private final static int PROCESSOR_TYPE_TI = 5;
     private static volatile VideoController Instance = null;
 
     interface CompressProgressListener {
@@ -67,8 +60,6 @@ class VideoController {
 
         long startTime = -1;
         long endTime = -1;
-        File cacheFile = new File(targetPath);
-
 
         boolean error = false;
         long videoStartTime = startTime;
@@ -343,13 +334,13 @@ class VideoController {
                         }
                     }
                 } else {
-                    long videoTime = readAndWriteTrack(extractor, mediaMuxer, info, startTime, endTime, cacheFile, false);
+                    long videoTime = readAndWriteTrack(extractor, mediaMuxer, info, startTime, endTime, false);
                     if (videoTime != -1) {
                         videoStartTime = videoTime;
                     }
                 }
                 if (!error) {
-                    readAndWriteTrack(extractor, mediaMuxer, info, videoStartTime, endTime, cacheFile, true);
+                    readAndWriteTrack(extractor, mediaMuxer, info, videoStartTime, endTime, true);
                 }
             } catch (Exception e) {
                 Log.e(TAG, e.getMessage());
@@ -371,10 +362,8 @@ class VideoController {
             return false;
         }
 
-        cachedFile = cacheFile;
-
-        Log.e(TAG, originalPath + "");
-        Log.e(TAG, cacheFile.getPath() + "");
+        Log.e(TAG, originalPath);
+        Log.e(TAG, targetPath);
         Log.e(TAG, inputFile.getPath() + "");
 
         return true;
@@ -515,7 +504,7 @@ class VideoController {
         return lastCodecInfo;
     }
 
-    private long readAndWriteTrack(MediaExtractor extractor, MediaMuxer mediaMuxer, MediaCodec.BufferInfo info, long start, long end, File file, boolean isAudio) throws Exception {
+    private long readAndWriteTrack(MediaExtractor extractor, MediaMuxer mediaMuxer, MediaCodec.BufferInfo info, long start, long end, boolean isAudio) throws Exception {
         int trackIndex = selectTrack(extractor, isAudio);
         if (trackIndex >= 0) {
             extractor.selectTrack(trackIndex);
