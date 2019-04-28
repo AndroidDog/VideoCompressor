@@ -58,81 +58,24 @@ class VideoController {
      */
     public boolean convertVideo(final String sourcePath, String targetPath, int quality, CompressProgressListener listener) {
         this.originalPath = sourcePath;
-
-        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-        retriever.setDataSource(originalPath);
-        String width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
-        String height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
-        String rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
-        long duration = Long.valueOf(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)) * 1000;
-
-        long startTime = -1;
-        long endTime = -1;
-
-        int rotationValue = Integer.valueOf(rotation);
-        int originalWidth = Integer.valueOf(width);
-        int originalHeight = Integer.valueOf(height);
-
-        int targetWidth;
-        int targetHeight;
-        int bitrate;
-        switch (quality) {
-            default:
-            case COMPRESS_QUALITY_HIGH:
-                targetWidth = originalWidth * 2 / 3;
-                targetHeight = originalHeight * 2 / 3;
-                bitrate = targetWidth * targetHeight * 30;
-                break;
-            case COMPRESS_QUALITY_MEDIUM:
-//              resultWidth = originalWidth / 2;
-//              resultHeight = originalHeight / 2;
-                targetWidth = originalWidth;
-                targetHeight = originalHeight;
-                bitrate = targetWidth * targetHeight * 5;
-                break;
-            case COMPRESS_QUALITY_LOW:
-                targetWidth = originalWidth / 2;
-                targetHeight = originalHeight / 2;
-                bitrate = (targetWidth / 2) * (targetHeight / 2) * 10;
-                break;
-        }
-
-        Log.i(TAG, "bitrate=" + bitrate);
-
-        int rotateRender = 0;
-
-        File cacheFile = new File(targetPath);
-
-        if (Build.VERSION.SDK_INT > 20) {
-            if (rotationValue == 90) {
-                int temp = targetHeight;
-                targetHeight = targetWidth;
-                targetWidth = temp;
-                rotationValue = 0;
-                rotateRender = 270;
-            } else if (rotationValue == 180) {
-                rotateRender = 180;
-                rotationValue = 0;
-            } else if (rotationValue == 270) {
-                int temp = targetHeight;
-                targetHeight = targetWidth;
-                targetWidth = temp;
-                rotationValue = 0;
-                rotateRender = 90;
-            }
-        }
-
         File inputFile = new File(originalPath);
         if (!inputFile.canRead()) {
             return false;
         }
+
+        CompressFactor compressFactor = computeCompressFactor(sourcePath, quality);
+
+        long startTime = -1;
+        long endTime = -1;
+        File cacheFile = new File(targetPath);
+
 
         boolean error = false;
         long videoStartTime = startTime;
 
         long time = System.currentTimeMillis();
 
-        if (targetWidth != 0 && targetHeight != 0) {
+        if (compressFactor.targetWidth != 0 && compressFactor.targetHeight != 0) {
             MediaMuxer mediaMuxer = null;
             MediaExtractor extractor = null;
             try {
@@ -149,7 +92,7 @@ class VideoController {
                 extractor.setDataSource(inputFile.toString());
 
 
-                if (targetWidth != originalWidth || targetHeight != originalHeight) {
+                if (compressFactor.targetWidth != compressFactor.originalWidth || compressFactor.targetHeight != compressFactor.originalHeight) {
                     int videoIndex;
                     videoIndex = selectTrack(extractor, false);
 
@@ -200,19 +143,19 @@ class VideoController {
                             }
                             Log.e("tmessages", "colorFormat = " + colorFormat);
 
-                            int resultHeightAligned = targetHeight;
+                            int resultHeightAligned = compressFactor.targetHeight;
                             int padding = 0;
-                            int bufferSize = targetWidth * targetHeight * 3 / 2;
+                            int bufferSize = compressFactor.targetWidth * compressFactor.targetHeight * 3 / 2;
                             if (processorType == PROCESSOR_TYPE_OTHER) {
-                                if (targetHeight % 16 != 0) {
-                                    resultHeightAligned += (16 - (targetHeight % 16));
-                                    padding = targetWidth * (resultHeightAligned - targetHeight);
+                                if (compressFactor.targetHeight % 16 != 0) {
+                                    resultHeightAligned += (16 - (compressFactor.targetHeight % 16));
+                                    padding = compressFactor.targetWidth * (resultHeightAligned - compressFactor.targetHeight);
                                     bufferSize += padding * 5 / 4;
                                 }
                             } else if (processorType == PROCESSOR_TYPE_QCOM) {
                                 if (!manufacturer.toLowerCase().equals("lge")) {
-                                    int uvoffset = (targetWidth * targetHeight + 2047) & ~2047;
-                                    padding = uvoffset - (targetWidth * targetHeight);
+                                    int uvoffset = (compressFactor.targetWidth * compressFactor.targetHeight + 2047) & ~2047;
+                                    padding = uvoffset - (compressFactor.targetWidth * compressFactor.targetHeight);
                                     bufferSize += padding;
                                 }
                             } else if (processorType == PROCESSOR_TYPE_TI) {
@@ -223,8 +166,8 @@ class VideoController {
                                 //bufferSize += padding * 5 / 4;
                             } else if (processorType == PROCESSOR_TYPE_MTK) {
                                 if (manufacturer.equals("baidu")) {
-                                    resultHeightAligned += (16 - (targetHeight % 16));
-                                    padding = targetWidth * (resultHeightAligned - targetHeight);
+                                    resultHeightAligned += (16 - (compressFactor.targetHeight % 16));
+                                    padding = compressFactor.targetWidth * (resultHeightAligned - compressFactor.targetHeight);
                                     bufferSize += padding * 5 / 4;
                                 }
                             }
@@ -238,15 +181,15 @@ class VideoController {
                             MediaFormat inputFormat = extractor.getTrackFormat(videoIndex);
 
                             //初始化解码器格式 预设宽高,设置相关参数
-                            MediaFormat outputFormat = MediaFormat.createVideoFormat(MIME_TYPE, targetWidth, targetHeight);
+                            MediaFormat outputFormat = MediaFormat.createVideoFormat(MIME_TYPE, compressFactor.targetWidth, compressFactor.targetHeight);
                             //设置帧率
                             outputFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
-                            outputFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
+                            outputFormat.setInteger(MediaFormat.KEY_BIT_RATE, compressFactor.bitrate);
                             outputFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 25);
                             outputFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 10);
 
-                            outputFormat.setInteger("stride", targetWidth + 32);
-                            outputFormat.setInteger("slice-height", targetHeight);
+                            outputFormat.setInteger("stride", compressFactor.targetWidth + 32);
+                            outputFormat.setInteger("slice-height", compressFactor.targetHeight);
 
                             // //通过多媒体格式名创建一个可用的解码器
                             encoder = MediaCodec.createEncoderByType(MIME_TYPE);
@@ -359,7 +302,7 @@ class VideoController {
                                                     }
                                                 }
 
-                                                MediaFormat newFormat = MediaFormat.createVideoFormat(MIME_TYPE, targetWidth, targetHeight);
+                                                MediaFormat newFormat = MediaFormat.createVideoFormat(MIME_TYPE, compressFactor.targetWidth, compressFactor.targetHeight);
                                                 if (sps != null && pps != null) {
                                                     newFormat.setByteBuffer("csd-0", sps);
                                                     newFormat.setByteBuffer("csd-1", pps);
@@ -418,7 +361,7 @@ class VideoController {
                                                     inputSurface.setPresentationTime(info.presentationTimeUs * 1000);
 
                                                     if (listener != null) {
-                                                        listener.onProgress((float) info.presentationTimeUs / (float) duration * 100);
+                                                        listener.onProgress((float) info.presentationTimeUs / (float) compressFactor.duration * 100);
                                                     }
 
                                                     inputSurface.swapBuffers();
@@ -468,8 +411,7 @@ class VideoController {
                     readAndWriteTrack(extractor, mediaMuxer, info, videoStartTime, endTime, cacheFile, true);
                 }
             } catch (Exception e) {
-                error = true;
-                Log.e("tmessages", e.getMessage());
+                Log.e(TAG, e.getMessage());
             } finally {
                 if (extractor != null) {
                     extractor.release();
@@ -479,10 +421,10 @@ class VideoController {
                         mediaMuxer.stop();
                         mediaMuxer.release();
                     } catch (Exception e) {
-                        Log.e("tmessages", e.getMessage());
+                        Log.e(TAG, e.getMessage());
                     }
                 }
-                Log.e("tmessages", "time = " + (System.currentTimeMillis() - time));
+                Log.e(TAG, "time = " + (System.currentTimeMillis() - time));
             }
         } else {
             return false;
@@ -490,11 +432,95 @@ class VideoController {
 
         cachedFile = cacheFile;
 
-        Log.e("ViratPath", originalPath + "");
-        Log.e("ViratPath", cacheFile.getPath() + "");
-        Log.e("ViratPath", inputFile.getPath() + "");
+        Log.e(TAG, originalPath + "");
+        Log.e(TAG, cacheFile.getPath() + "");
+        Log.e(TAG, inputFile.getPath() + "");
 
         return true;
+    }
+
+    private CompressFactor computeCompressFactor(String originalPath, int quality) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        retriever.setDataSource(originalPath);
+        String width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
+        String height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+        String rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+        long duration = Long.valueOf(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)) * 1000;
+
+        int rotationValue = Integer.valueOf(rotation);
+        int originalWidth = Integer.valueOf(width);
+        int originalHeight = Integer.valueOf(height);
+
+        int targetWidth;
+        int targetHeight;
+        int bitrate;
+        switch (quality) {
+            default:
+            case COMPRESS_QUALITY_HIGH:
+                targetWidth = originalWidth * 2 / 3;
+                targetHeight = originalHeight * 2 / 3;
+                bitrate = targetWidth * targetHeight * 30;
+                break;
+            case COMPRESS_QUALITY_MEDIUM:
+//              resultWidth = originalWidth / 2;
+//              resultHeight = originalHeight / 2;
+                targetWidth = originalWidth;
+                targetHeight = originalHeight;
+                bitrate = targetWidth * targetHeight * 5;
+                break;
+            case COMPRESS_QUALITY_LOW:
+                targetWidth = originalWidth / 2;
+                targetHeight = originalHeight / 2;
+                bitrate = (targetWidth / 2) * (targetHeight / 2) * 10;
+                break;
+        }
+
+        Log.i(TAG, "bitrate=" + bitrate);
+
+        int rotateRender = 0;
+
+
+        if (Build.VERSION.SDK_INT > 20) {
+            if (rotationValue == 90) {
+                int temp = targetHeight;
+                targetHeight = targetWidth;
+                targetWidth = temp;
+                rotationValue = 0;
+                rotateRender = 270;
+            } else if (rotationValue == 180) {
+                rotateRender = 180;
+                rotationValue = 0;
+            } else if (rotationValue == 270) {
+                int temp = targetHeight;
+                targetHeight = targetWidth;
+                targetWidth = temp;
+                rotationValue = 0;
+                rotateRender = 90;
+            }
+        }
+
+        CompressFactor compressFactor = new CompressFactor();
+        compressFactor.originalWidth = originalWidth;
+        compressFactor.originalHeight = originalHeight;
+        compressFactor.duration = duration;
+        compressFactor.targetWidth = targetWidth;
+        compressFactor.targetHeight = targetHeight;
+        compressFactor.bitrate = bitrate;
+        compressFactor.rotationValue = rotationValue;
+        compressFactor.rotateRender = rotateRender;
+
+        return compressFactor;
+    }
+
+    private class CompressFactor {
+        int originalWidth;
+        int originalHeight;
+        long duration;
+        int targetWidth;
+        int targetHeight;
+        int bitrate;
+        int rotationValue;
+        int rotateRender;
     }
 
     private int selectColorFormat(MediaCodecInfo codecInfo, String mimeType) {
