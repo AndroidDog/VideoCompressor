@@ -13,17 +13,17 @@ import android.util.Log;
 import java.io.File;
 import java.nio.ByteBuffer;
 
-public class VideoController {
+class VideoController {
     public static final String TAG = "VideoCompress";
 
     static final int COMPRESS_QUALITY_HIGH = 1;
     static final int COMPRESS_QUALITY_MEDIUM = 2;
     static final int COMPRESS_QUALITY_LOW = 3;
 
-    public static File cachedFile;
-    public String originalPath;
+    private static File cachedFile;
+    private String originalPath;
 
-    public final static String MIME_TYPE = "video/avc";
+    private final static String MIME_TYPE = "video/avc";
     private final static int PROCESSOR_TYPE_OTHER = 0;
     private final static int PROCESSOR_TYPE_QCOM = 1;
     private final static int PROCESSOR_TYPE_INTEL = 2;
@@ -49,7 +49,7 @@ public class VideoController {
         return localInstance;
     }
 
-    public static int selectColorFormat(MediaCodecInfo codecInfo, String mimeType) {
+    private int selectColorFormat(MediaCodecInfo codecInfo, String mimeType) {
         MediaCodecInfo.CodecCapabilities capabilities = codecInfo.getCapabilitiesForType(mimeType);
         int lastColorFormat = 0;
         for (int i = 0; i < capabilities.colorFormats.length; i++) {
@@ -64,7 +64,7 @@ public class VideoController {
         return lastColorFormat;
     }
 
-    private static boolean isRecognizedFormat(int colorFormat) {
+    private boolean isRecognizedFormat(int colorFormat) {
         switch (colorFormat) {
             case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
             case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedPlanar:
@@ -77,39 +77,7 @@ public class VideoController {
         }
     }
 
-    public static class VideoConvertRunnable implements Runnable {
-
-        private String videoPath;
-        private String destPath;
-
-        private VideoConvertRunnable(String videoPath, String destPath) {
-            this.videoPath = videoPath;
-            this.destPath = destPath;
-        }
-
-        public static void runConversion(final String videoPath, final String destPath) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        VideoConvertRunnable wrapper = new VideoConvertRunnable(videoPath, destPath);
-                        Thread th = new Thread(wrapper, "VideoConvertRunnable");
-                        th.start();
-                        th.join();
-                    } catch (Exception e) {
-                        Log.e("tmessages", e.getMessage());
-                    }
-                }
-            }).start();
-        }
-
-        @Override
-        public void run() {
-            VideoController.getInstance().convertVideo(videoPath, destPath, 0, null);
-        }
-    }
-
-    public static MediaCodecInfo selectCodec(String mimeType) {
+    private MediaCodecInfo selectCodec(String mimeType) {
         int numCodecs = MediaCodecList.getCodecCount();
         MediaCodecInfo lastCodecInfo = null;
         for (int i = 0; i < numCodecs; i++) {
@@ -130,21 +98,6 @@ public class VideoController {
             }
         }
         return lastCodecInfo;
-    }
-
-    /**
-     * Background conversion for queueing tasks
-     *
-     * @param path source file to compress
-     * @param dest destination directory to put result
-     */
-
-    public void scheduleVideoConvert(String path, String dest) {
-        startVideoConvertFromQueue(path, dest);
-    }
-
-    private void startVideoConvertFromQueue(String path, String dest) {
-        VideoConvertRunnable.runConversion(path, dest);
     }
 
     private long readAndWriteTrack(MediaExtractor extractor, MediaMuxer mediaMuxer, MediaCodec.BufferInfo info, long start, long end, File file, boolean isAudio) throws Exception {
@@ -666,4 +619,6 @@ public class VideoController {
 
         return true;
     }
+
+
 }
