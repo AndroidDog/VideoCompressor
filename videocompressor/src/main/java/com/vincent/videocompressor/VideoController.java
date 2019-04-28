@@ -18,6 +18,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
 public class VideoController {
+    public static final String TAG = "VideoCompress";
+
     static final int COMPRESS_QUALITY_HIGH = 1;
     static final int COMPRESS_QUALITY_MEDIUM = 2;
     static final int COMPRESS_QUALITY_LOW = 3;
@@ -33,7 +35,6 @@ public class VideoController {
     private final static int PROCESSOR_TYPE_SEC = 4;
     private final static int PROCESSOR_TYPE_TI = 5;
     private static volatile VideoController Instance = null;
-//    private boolean videoConvertFirstWrite = true;
 
     interface CompressProgressListener {
         void onProgress(float percent);
@@ -259,15 +260,11 @@ public class VideoController {
                 bitrate = resultWidth * resultHeight * 30;
                 break;
             case COMPRESS_QUALITY_MEDIUM:
-
 //              resultWidth = originalWidth / 2;
 //              resultHeight = originalHeight / 2;
-
                 resultWidth = originalWidth;
                 resultHeight = originalHeight;
                 bitrate = resultWidth * resultHeight * 5;
-                Log.i("tangpeng", "bitrate=" + bitrate);
-
                 break;
             case COMPRESS_QUALITY_LOW:
                 resultWidth = originalWidth / 2;
@@ -276,17 +273,13 @@ public class VideoController {
                 break;
         }
 
+        Log.i(TAG, "bitrate=" + bitrate);
+
         int rotateRender = 0;
 
         File cacheFile = new File(destinationPath);
 
-        if (Build.VERSION.SDK_INT < 18 && resultHeight > resultWidth && resultWidth != originalWidth && resultHeight != originalHeight) {
-            int temp = resultHeight;
-            resultHeight = resultWidth;
-            resultWidth = temp;
-            rotationValue = 90;
-            rotateRender = 270;
-        } else if (Build.VERSION.SDK_INT > 20) {
+        if (Build.VERSION.SDK_INT > 20) {
             if (rotationValue == 90) {
                 int temp = resultHeight;
                 resultHeight = resultWidth;
@@ -307,11 +300,9 @@ public class VideoController {
 
         File inputFile = new File(path);
         if (!inputFile.canRead()) {
-//            didWriteData(true, true);
             return false;
         }
 
-//        videoConvertFirstWrite = true;
         boolean error = false;
         long videoStartTime = startTime;
 
@@ -430,26 +421,20 @@ public class VideoController {
                             outputFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 25);
                             outputFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 10);
 
-                            if (Build.VERSION.SDK_INT < 18) {
-                                outputFormat.setInteger("stride", resultWidth + 32);
-                                outputFormat.setInteger("slice-height", resultHeight);
-                            }
+                            outputFormat.setInteger("stride", resultWidth + 32);
+                            outputFormat.setInteger("slice-height", resultHeight);
 
                             // //通过多媒体格式名创建一个可用的解码器
                             encoder = MediaCodec.createEncoderByType(MIME_TYPE);
                             encoder.configure(outputFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-                            if (Build.VERSION.SDK_INT >= 18) {
-                                inputSurface = new InputSurface(encoder.createInputSurface());
-                                inputSurface.makeCurrent();
-                            }
+                            inputSurface = new InputSurface(encoder.createInputSurface());
+                            inputSurface.makeCurrent();
+
                             encoder.start();
 
                             decoder = MediaCodec.createDecoderByType(inputFormat.getString(MediaFormat.KEY_MIME));
-                            if (Build.VERSION.SDK_INT >= 18) {
-                                outputSurface = new OutputSurface();
-                            } else {
-                                outputSurface = new OutputSurface(resultWidth, resultHeight, rotateRender);
-                            }
+                            outputSurface = new OutputSurface();
+
                             //crypto:数据加密 flags:编码器/编码器
                             decoder.configure(inputFormat, outputSurface.getSurface(), null, 0);
                             decoder.start();
@@ -461,9 +446,7 @@ public class VideoController {
                             if (Build.VERSION.SDK_INT < 21) {
                                 decoderInputBuffers = decoder.getInputBuffers();
                                 encoderOutputBuffers = encoder.getOutputBuffers();
-                                if (Build.VERSION.SDK_INT < 18) {
-                                    encoderInputBuffers = encoder.getInputBuffers();
-                                }
+
                             }
 
                             while (!outputDone) {
@@ -531,9 +514,6 @@ public class VideoController {
                                         if (info.size > 1) {
                                             if ((info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0) {
                                                 mediaMuxer.writeSampleData(videoTrackIndex, encodedData, info);
-//                                                if () {
-//                                                    didWriteData(false, false);
-//                                                }
                                             } else if (videoTrackIndex == -5) {
                                                 byte[] csd = new byte[info.size];
                                                 encodedData.limit(info.offset + info.size);
@@ -584,11 +564,8 @@ public class VideoController {
                                             throw new RuntimeException("unexpected result from decoder.dequeueOutputBuffer: " + decoderStatus);
                                         } else {
                                             boolean doRender;
-                                            if (Build.VERSION.SDK_INT >= 18) {
-                                                doRender = info.size != 0;
-                                            } else {
-                                                doRender = info.size != 0 || info.presentationTimeUs != 0;
-                                            }
+                                            doRender = info.size != 0;
+
                                             if (endTime > 0 && info.presentationTimeUs >= endTime) {
                                                 inputDone = true;
                                                 decoderDone = true;
@@ -613,41 +590,20 @@ public class VideoController {
                                                     Log.e("tmessages", e.getMessage());
                                                 }
                                                 if (!errorWait) {
-                                                    if (Build.VERSION.SDK_INT >= 18) {
-                                                        outputSurface.drawImage(false);
-                                                        inputSurface.setPresentationTime(info.presentationTimeUs * 1000);
+                                                    outputSurface.drawImage(false);
+                                                    inputSurface.setPresentationTime(info.presentationTimeUs * 1000);
 
-                                                        if (listener != null) {
-                                                            listener.onProgress((float) info.presentationTimeUs / (float) duration * 100);
-                                                        }
-
-                                                        inputSurface.swapBuffers();
-                                                    } else {
-                                                        int inputBufIndex = encoder.dequeueInputBuffer(TIMEOUT_USEC);
-                                                        if (inputBufIndex >= 0) {
-                                                            outputSurface.drawImage(true);
-                                                            ByteBuffer rgbBuf = outputSurface.getFrame();
-                                                            ByteBuffer yuvBuf = encoderInputBuffers[inputBufIndex];
-                                                            yuvBuf.clear();
-                                                            convertVideoFrame(rgbBuf, yuvBuf, colorFormat, resultWidth, resultHeight, padding, swapUV);
-                                                            encoder.queueInputBuffer(inputBufIndex, 0, bufferSize, info.presentationTimeUs, 0);
-                                                        } else {
-                                                            Log.e("tmessages", "input buffer not available");
-                                                        }
+                                                    if (listener != null) {
+                                                        listener.onProgress((float) info.presentationTimeUs / (float) duration * 100);
                                                     }
+
+                                                    inputSurface.swapBuffers();
                                                 }
                                             }
                                             if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                                                 decoderOutputAvailable = false;
                                                 Log.e("tmessages", "decoder stream end");
-                                                if (Build.VERSION.SDK_INT >= 18) {
-                                                    encoder.signalEndOfInputStream();
-                                                } else {
-                                                    int inputBufIndex = encoder.dequeueInputBuffer(TIMEOUT_USEC);
-                                                    if (inputBufIndex >= 0) {
-                                                        encoder.queueInputBuffer(inputBufIndex, 0, 1, info.presentationTimeUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                                                    }
-                                                }
+                                                encoder.signalEndOfInputStream();
                                             }
                                         }
                                     }
@@ -715,18 +671,5 @@ public class VideoController {
         Log.e("ViratPath", inputFile.getPath() + "");
 
         return true;
-    }
-
-    public static void copyFile(File src, File dst) throws IOException {
-        FileChannel inChannel = new FileInputStream(src).getChannel();
-        FileChannel outChannel = new FileOutputStream(dst).getChannel();
-        try {
-            inChannel.transferTo(1, inChannel.size(), outChannel);
-        } finally {
-            if (inChannel != null)
-                inChannel.close();
-            if (outChannel != null)
-                outChannel.close();
-        }
     }
 }
