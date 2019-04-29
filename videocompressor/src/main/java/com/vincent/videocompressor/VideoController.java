@@ -119,7 +119,7 @@ class VideoController {
                             outputFormat.setInteger(MediaFormat.KEY_BIT_RATE, compressFactor.bitrate);
                             outputFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 25);
                             outputFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 10);
-
+//                            outputFormat.setInteger(MediaFormat.KEY_ROTATION, 90);
                             outputFormat.setInteger("stride", compressFactor.targetWidth + 32);
                             outputFormat.setInteger("slice-height", compressFactor.targetHeight);
 
@@ -141,7 +141,6 @@ class VideoController {
                             final int TIMEOUT_USEC = 2500;
                             ByteBuffer[] decoderInputBuffers = null;
                             ByteBuffer[] encoderOutputBuffers = null;
-                            ByteBuffer[] encoderInputBuffers = null;
                             if (Build.VERSION.SDK_INT < 21) {
                                 decoderInputBuffers = decoder.getInputBuffers();
                                 encoderOutputBuffers = encoder.getOutputBuffers();
@@ -362,8 +361,8 @@ class VideoController {
             return false;
         }
 
-        Log.e(TAG, originalPath);
-        Log.e(TAG, targetPath);
+        Log.e(TAG, "original file length = " + new File(originalPath).length());
+        Log.e(TAG, "target file length = " + new File(targetPath).length());
         Log.e(TAG, inputFile.getPath() + "");
 
         return true;
